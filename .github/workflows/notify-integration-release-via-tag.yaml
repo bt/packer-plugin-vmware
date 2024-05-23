@@ -21,25 +21,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout this repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           ref: ${{ github.ref }}
       # Ensure that Docs are Compiled
-      - uses: actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe # v4.1.0
+      - uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       - shell: bash
         run: make generate
       - shell: bash
         run: |
-          if [[ -z "$(git status -s)" ]]; then
+          uncommitted="$(git status -s)"
+          if [[ -z "$uncommitted" ]]; then
             echo "OK"
           else
             echo "Docs have been updated, but the compiled docs have not been committed."
             echo "Run 'make generate', and commit the result to resolve this error."
+            echo "Generated but uncommitted files:"
+            echo "$uncommitted"
             exit 1
           fi
       # Perform the Release
       - name: Checkout integration-release-action
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
         with:
           repository: hashicorp/integration-release-action
           path: ./integration-release-action
