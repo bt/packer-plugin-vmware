@@ -53,7 +53,7 @@ type RunConfig struct {
 func (c *RunConfig) Prepare(_ *interpolate.Context, driverConfig *DriverConfig) (warnings []string, errs []error) {
 	if c.VNCOverWebsocket {
 		if driverConfig.RemoteType == "" {
-			errs = append(errs, fmt.Errorf("'vnc_over_websocket' can only be used with remote VMWare builds."))
+			errs = append(errs, fmt.Errorf("'vnc_over_websocket' can only be used with remote builds"))
 			return
 		} else if driverConfig.RemoteType == "vmrest" {
 			errs = append(errs, fmt.Errorf("'vnc_over_websocket' is not supported by the vmrest driver"))

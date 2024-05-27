@@ -34,9 +34,9 @@ func (c *ToolsConfig) Prepare(ctx *interpolate.Context, driverConfig *DriverConf
 
 	if c.ToolsUploadPath == "" {
 		if c.ToolsSourcePath != "" && c.ToolsUploadFlavor == "" {
-			errs = append(errs, fmt.Errorf("If you provide a "+
-				"tools_source_path, you must also provide either a "+
-				"tools_upload_flavor or a tools_upload_path."))
+			errs = append(errs, fmt.Errorf("provide either "+
+				"'tools_upload_flavor' or 'tools_upload_path' with "+
+				"'tools_source_path'"))
 		}
 		c.ToolsUploadPath = "{{ .Flavor }}.iso"
 	} else {

@@ -5,7 +5,6 @@ package iso
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -26,11 +25,7 @@ func testConfig() map[string]interface{} {
 }
 
 func TestBuilder_ImplementsBuilder(t *testing.T) {
-	var raw interface{}
-	raw = &Builder{}
-	if _, ok := raw.(packersdk.Builder); !ok {
-		t.Error("Builder must implement builder.")
-	}
+	var _ packersdk.Builder = &Builder{}
 }
 
 func TestBuilderPrepare_Defaults(t *testing.T) {
@@ -403,7 +398,7 @@ func TestBuilderPrepare_OutputDir(t *testing.T) {
 	config := testConfig()
 
 	// Test with existing dir
-	dir, err := ioutil.TempDir("", "packer")
+	dir, err := os.MkdirTemp("", "packer")
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -487,7 +482,7 @@ func TestBuilderPrepare_VMXTemplatePath(t *testing.T) {
 	}
 
 	// Test good
-	tf, err := ioutil.TempFile("", "packer")
+	tf, err := os.CreateTemp("", "packer")
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -509,7 +504,7 @@ func TestBuilderPrepare_VMXTemplatePath(t *testing.T) {
 	}
 
 	// Bad template
-	tf2, err := ioutil.TempFile("", "packer")
+	tf2, err := os.CreateTemp("", "packer")
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}

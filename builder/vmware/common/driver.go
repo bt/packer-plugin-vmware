@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -146,10 +146,7 @@ func NewDriver(dconfig *DriverConfig, config *SSHConfig, vmName string) (Driver,
 		errs += "* " + err.Error() + "\n"
 	}
 
-	return nil, fmt.Errorf(
-		"Unable to initialize any driver for this platform. The errors\n"+
-			"from each driver are shown below. Please fix at least one driver\n"+
-			"to continue:\n%s", errs)
+	return nil, fmt.Errorf("driver initialization failed. fix at least one driver to continue:\n%s", errs)
 }
 
 func runAndLog(cmd *exec.Cmd) (string, string, error) {
@@ -200,8 +197,7 @@ func runAndLog(cmd *exec.Cmd) (string, string, error) {
 func normalizeVersion(version string) (string, error) {
 	i, err := strconv.Atoi(version)
 	if err != nil {
-		return "", fmt.Errorf(
-			"VMware version '%s' is not numeric", version)
+		return "", fmt.Errorf("returned a non-integer version %q: %s", version, err)
 	}
 
 	return fmt.Sprintf("%02d", i), nil
@@ -219,8 +215,7 @@ func compareVersions(versionFound string, versionWanted string, product string) 
 	}
 
 	if found < wanted {
-		return fmt.Errorf(
-			"VMware %s version %s, or greater, is required. Found version: %s", product, versionWanted, versionFound)
+		return fmt.Errorf("requires %s or later, found %s", versionWanted, versionFound)
 	}
 
 	return nil
@@ -255,7 +250,7 @@ func readVMXConfig(path string) (map[string]string, error) {
 	}
 	defer f.Close()
 
-	vmxBytes, err := ioutil.ReadAll(f)
+	vmxBytes, err := io.ReadAll(f)
 	if err != nil {
 		return map[string]string{}, err
 	}
@@ -267,12 +262,12 @@ func readCustomDeviceName(vmxData map[string]string) (string, error) {
 
 	connectionType, ok := vmxData["ethernet0.connectiontype"]
 	if !ok || connectionType != "custom" {
-		return "", fmt.Errorf("Unable to determine the device name for the connection type : %s", connectionType)
+		return "", fmt.Errorf("unable to determine the device name for the connection type : %s", connectionType)
 	}
 
 	device, ok := vmxData["ethernet0.vnet"]
 	if !ok || device == "" {
-		return "", fmt.Errorf("Unable to determine the device name for the connection type \"%s\" : %s", connectionType, device)
+		return "", fmt.Errorf("unable to determine the device name for the connection type \"%s\" : %s", connectionType, device)
 	}
 	return device, nil
 }
@@ -306,10 +301,10 @@ func (d *VmwareDriver) GuestAddress(state multistep.StateBag) (string, error) {
 	macAddress := ""
 	if macAddress, ok = vmxData["ethernet0.address"]; !ok || macAddress == "" {
 		if macAddress, ok = vmxData["ethernet0.generatedaddress"]; !ok || macAddress == "" {
-			return "", errors.New("couldn't find MAC address in VMX")
+			return "", errors.New("unable to determine MAC address")
 		}
 	}
-	log.Printf("GuestAddress found MAC address in VMX: %s", macAddress)
+	log.Printf("GuestAddress discovered MAC address: %s", macAddress)
 
 	res, err := net.ParseMAC(macAddress)
 	if err != nil {
@@ -375,7 +370,7 @@ func (d *VmwareDriver) PotentialGuestIP(state multistep.StateBag) ([]string, err
 		// open up the path to the dhcpd leases
 		fh, err := os.Open(dhcpLeasesPath)
 		if err != nil {
-			log.Printf("Error while reading DHCP lease path file %s: %s", dhcpLeasesPath, err.Error())
+			log.Printf("Error reading DHCP lease path file %s: %s", dhcpLeasesPath, err.Error())
 			continue
 		}
 		defer fh.Close()
@@ -416,7 +411,7 @@ func (d *VmwareDriver) PotentialGuestIP(state multistep.StateBag) ([]string, err
 		// If we weren't able to grab any results, then we'll do a "loose"-match
 		// where we only look for anything where the hardware address matches.
 		if len(results) == 0 {
-			log.Printf("Unable to find an exact match for DHCP lease. Falling back to a loose match for hw address %v", MACAddress)
+			log.Printf("Unable to find an exact match for DHCP lease. Falling back loose matching for a hardware address %v", MACAddress)
 			for _, entry := range leaseEntries {
 				if bytes.Equal(hwaddr, entry.ether) {
 					results = append(results, entry)
@@ -495,7 +490,7 @@ func (d *VmwareDriver) PotentialGuestIP(state multistep.StateBag) ([]string, err
 		}
 	}
 
-	return []string{}, fmt.Errorf("None of the found device(s) %v has a DHCP lease for MAC %s", devices, MACAddress)
+	return []string{}, fmt.Errorf("none of the found device(s) %v have a DHCP lease for MAC address %s", devices, MACAddress)
 }
 
 func (d *VmwareDriver) HostAddress(state multistep.StateBag) (string, error) {
@@ -538,7 +533,7 @@ func (d *VmwareDriver) HostAddress(state multistep.StateBag) (string, error) {
 		// parse dhcpd configuration
 		pathDhcpConfig := d.DhcpConfPath(device)
 		if _, err := os.Stat(pathDhcpConfig); err != nil {
-			return "", fmt.Errorf("Could not find vmnetdhcp conf file: %s", pathDhcpConfig)
+			return "", fmt.Errorf("unable to find vmnetdhcp conf file: %s", pathDhcpConfig)
 		}
 
 		config, err := ReadDhcpConfig(pathDhcpConfig)
@@ -574,7 +569,7 @@ func (d *VmwareDriver) HostAddress(state multistep.StateBag) (string, error) {
 			names = append(names, intf.Name)
 		}
 	}
-	return "", fmt.Errorf("Unable to find host address from devices %v, last error: %s", devices, lastError)
+	return "", fmt.Errorf("unable to find host address from devices %v, last error: %s", devices, lastError)
 }
 
 func (d *VmwareDriver) HostIP(state multistep.StateBag) (string, error) {
@@ -617,7 +612,7 @@ func (d *VmwareDriver) HostIP(state multistep.StateBag) (string, error) {
 		// parse dhcpd configuration
 		pathDhcpConfig := d.DhcpConfPath(device)
 		if _, err := os.Stat(pathDhcpConfig); err != nil {
-			return "", fmt.Errorf("Could not find vmnetdhcp conf file: %s", pathDhcpConfig)
+			return "", fmt.Errorf("unable to find vmnetdhcp conf file: %s", pathDhcpConfig)
 		}
 		config, err := ReadDhcpConfig(pathDhcpConfig)
 		if err != nil {
@@ -640,7 +635,7 @@ func (d *VmwareDriver) HostIP(state multistep.StateBag) (string, error) {
 
 		return address.String(), nil
 	}
-	return "", fmt.Errorf("Unable to find host IP from devices %v, last error: %s", devices, lastError)
+	return "", fmt.Errorf("unable to find host IP from devices %v, last error: %s", devices, lastError)
 }
 
 func GetOVFTool() string {
@@ -658,7 +653,7 @@ func GetOVFTool() string {
 func (d *VmwareDriver) Export(args []string) error {
 	ovftool := GetOVFTool()
 	if ovftool == "" {
-		return fmt.Errorf("Error: ovftool not found")
+		return fmt.Errorf("error finding ovftool in path")
 	}
 	cmd := exec.Command(ovftool, args...)
 	if _, _, err := runAndLog(cmd); err != nil {
@@ -679,10 +674,8 @@ func (d *VmwareDriver) VerifyOvfTool(SkipExport, _ bool) error {
 	if ovftool != "" {
 		return nil
 	} else {
-		return fmt.Errorf("Couldn't find ovftool in path! Please either " +
-			"set `skip_export = true` and remove the `format` option " +
-			"from your template, or make sure ovftool is installed on " +
-			"your build system. ")
+		return fmt.Errorf("ovftool not found in path. either set " +
+			"'skip_export = true', remove 'format' option, or install ovftool")
 	}
 
 }
