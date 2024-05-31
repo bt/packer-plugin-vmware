@@ -635,7 +635,7 @@ func (d *VMRestDriver) UpdateVMX(address, password string, port int, data map[st
 	settings := map[string]string{
 		"remotedisplay.vnc.enabled":  "TRUE",
 		"remotedisplay.vnc.port":     fmt.Sprintf("%d", port),
-		"remotedisplay.vnc.ip":       address,
+		"remotedisplay.vnc.ip":       "0.0.0.0", // HACK: This is very bad security!
 		"remotedisplay.vnc.password": password,
 	}
 	for k, v := range settings {
@@ -656,7 +656,7 @@ Section 5: Helper Functions for working with the VMRest API
 
 func (d *VMRestDriver) MakeVMRestRequest(method string, path string, body string) (string, error) {
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 60 * time.Second,
 	}
 	var req *http.Request
 	var err error
